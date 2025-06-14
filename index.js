@@ -1,8 +1,6 @@
-// index.js
 import express from 'express'
 import cors from 'cors'
-import axios from 'axios'
-import 'dotenv/config'
+import fetch from 'node-fetch' // pastikan node-fetch sudah terinstall
 
 const app = express()
 
@@ -15,27 +13,40 @@ app.get('/', (req, res) => {
   res.send('✅ Dainsleif Backend with ES Modules is running!')
 })
 
-// Route /chat untuk AI Chatbot
+// Route untuk chatbot (POST /chat)
 app.post('/chat', async (req, res) => {
   const { message } = req.body
 
+  if (!message) {
+    return res.status(400).json({ response: '❌ Pesan tidak boleh kosong.' })
+  }
+
   try {
-    const response = await axios.post(
-      'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
-      { inputs: message },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.HF_API_KEY}`
+    const apiKey = process.env.HF_API_KEY
+    const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        inputs: {
+          text: message
         }
-      }
-    )
+      })
+    })
 
-    const reply = response.data.generated_text || '🤖 Bot tidak memberikan jawaban.'
+    const data = await response.json()
+
+    const reply =
+      data.generated_text ||
+      data[0]?.generated_text ||
+      '⚠️ Bot tidak memberikan jawaban.'
+
     res.json({ response: reply })
-
-  } catch (error) {
-    console.error('❌ Error dari Hugging Face:', error.message)
-    res.status(500).json({ response: '❌ Gagal mendapatkan jawaban dari AI.' })
+  } catch (err) {
+    console.error('❌ Chatbot Error:', err.message)
+    res.status(500).json({ response: '❌ Terjadi kesalahan di server.' })
   }
 })
 
